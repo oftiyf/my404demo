@@ -1,0 +1,14 @@
+[profile.default]
+src = "contracts"
+test = "test"
+out = "out"
+libs = ["lib"]
+solc = "0.8.20"
+exclude = ["contracts/legacy/**", "**/WETH.sol"]
+
+# 添加正确的 remappings
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@uniswap/v2-periphery/=lib/v2-periphery/",
+    "@uniswap/v3-periphery/=lib/v3-periphery/"
+]

@@ -1,0 +1,7 @@
+digraph G {
+  graph [ ratio = "auto", page = "40" ];
+  "ERC404";
+  "IERC404";
+  "ERC404" -> "IERC404";
+}
+
