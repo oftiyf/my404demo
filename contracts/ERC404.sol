@@ -505,7 +505,25 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     _transferDeposits(id_, from_, to_);
     
     // 执行NFT转移
-    _transferERC721(from_, to_, id_);
+    _setOwnerOf(id_, to_);
+
+    // 只有当 from_ 不是零地址时才更新发送者的数组
+    if (from_ != address(0)) {
+        uint256 updatedId = _owned[from_][_owned[from_].length - 1];
+        uint256 index = _getOwnedIndex(id_);
+        _owned[from_][index] = updatedId;
+        _owned[from_].pop();
+        _setOwnedIndex(updatedId, index);
+    }
+
+    // 更新接收者的 owned 数组
+    _owned[to_].push(id_);
+    _setOwnedIndex(id_, _owned[to_].length - 1);
+
+    // 清除授权
+    delete getApproved[id_];
+
+    emit ERC721Events.Transfer(from_, to_, id_);
   }
 
   /// @notice ERC-20转账的内部函数，同时处理可能需要的ERC-721转账
@@ -531,7 +549,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
         (erc20BalanceOfReceiverBefore / units);
       for (uint256 i = 0; i < tokensToRetrieveOrMint; ) {
         // 每次都只获取价值为1的NFT
-        _retrieveOrMintERC721(to_, units, true);
+        _retrieveOrMintERC721(to_, units, false);
         unchecked {
           ++i;
         }
@@ -570,7 +588,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
         nftsToTransfer
       ) {
         // 接收者获得新的整数代币时，只获取价值为1的NFT
-        _retrieveOrMintERC721(to_, units, true);
+        _retrieveOrMintERC721(to_, units, false);
       }
     }
 
@@ -646,6 +664,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
   // 内部函数：获取多个价值为1的NFT
   function _retrieveMultipleNFTs(address to_, uint256 availableAmount_) private {
+    // @audit revert MintLimitReached() - 当 minted 达到 uint256 最大值时会报错
     uint256 nftsToMint = availableAmount_ / units;
     
     for (uint256 i = 0; i < nftsToMint;) {
@@ -674,6 +693,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
                       _storedERC721Ids.popBack();
                     }
                     _handleNFTRestore(candidateId);
+                    // @audit _transferERC721() 内部可能会触发 InvalidSender() 或 InvalidRecipient() 错误
                     _transferERC721(address(0), to_, candidateId);
                     found = true;
                 }
@@ -688,6 +708,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
                 revert MintLimitReached();
             }
             uint256 newId = ID_ENCODING_PREFIX + minted;
+            // @audit _transferERC721() 内部可能会触发 InvalidSender() 或 InvalidRecipient() 错误
             _transferERC721(address(0), to_, newId);
         }
         
@@ -738,7 +759,12 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     _erc721TransferExempt[target_] = state_;
   }
 
-  /// @notice Function to reinstate balance on exemption removal
+  /// @notice 当地址从豁免名单中移除时恢复其 ERC721 余额
+  /// @dev 该函数用于当一个地址不再被豁免时，根据其 ERC20 余额恢复相应数量的 NFT
+  /// 计算方法:
+  /// 1. 根据地址的 ERC20 余额计算应持有的 NFT 数量
+  /// 2. 获取地址当前实际持有的 NFT 数量
+  /// 3. 如果应持有数量大于实际持有数量，则从 NFT 池中取回或铸造新的 NFT 来补足差额
   function _reinstateERC721Balance(address target_) private {
     uint256 expectedERC721Balance = erc20BalanceOf(target_) / units;
     uint256 actualERC721Balance = erc721BalanceOf(target_);
