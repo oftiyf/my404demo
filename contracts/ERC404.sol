@@ -137,10 +137,18 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     return minted;
   }
 
+  /// @notice 获取当前存储在队列中的ERC721代币数量
+  /// @dev 返回等待被转换为ERC721的代币ID数量
+  /// @return 返回队列中存储的ERC721代币ID的数量
   function getERC721QueueLength() public view virtual returns (uint256) {
     return _storedERC721Ids.length();
   }
 
+  /// @notice 获取队列中指定范围的ERC721代币ID
+  /// @dev 从队列中获取从start_开始的count_个代币ID
+  /// @param start_ 起始索引位置
+  /// @param count_ 要获取的代币数量
+  /// @return 返回指定范围内的代币ID数组
   function getERC721TokensInQueue(
     uint256 start_,
     uint256 count_
@@ -161,21 +169,16 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   /// @notice tokenURI must be implemented by child contract
   function tokenURI(uint256 id_) public view virtual returns (string memory);
 
-  /// @notice Function for token approvals
-  /// @dev This function assumes the operator is attempting to approve
-  ///      an ERC-721 if valueOrId_ is a possibly valid ERC-721 token id.
-  ///      Unlike setApprovalForAll, spender_ must be allowed to be 0x0 so
-  ///      that approval can be revoked.
+/// @notice 代币授权函数
+/// @dev 该函数已禁用，请使用 erc20Approve 或 erc721Approve 进行授权
+/// @param spender_ 被授权者地址  
+/// @param valueOrId_ 授权的代币数量或NFT ID
+/// @return 永远会revert，返回类型只是为了符合接口要求
   function approve(
     address spender_,
     uint256 valueOrId_
   ) public virtual returns (bool) {
-    if (_isValidTokenId(valueOrId_)) {
-      erc721Approve(spender_, valueOrId_);
-    } else {
-      return erc20Approve(spender_, valueOrId_);
-    }
-
+    revert("Use erc20Approve() or erc721Approve() instead");
     return true;
   }
 
@@ -184,6 +187,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     address erc721Owner = _getOwnerOf(id_);
 
     if (
+      // 检查调用者是否为NFT所有者，或者是否被所有者授权过(通过setApprovalForAll)
       msg.sender != erc721Owner && !isApprovedForAll[erc721Owner][msg.sender]
     ) {
       revert Unauthorized();
@@ -194,17 +198,16 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     emit ERC721Events.Approval(erc721Owner, spender_, id_);
   }
 
-  /// @dev Providing type(uint256).max for approval value results in an
-  ///      unlimited approval that is not deducted from on transfers.
+  /// @dev 提供type(uint256).max作为授权值的结果是一个无限制的授权，
+  ///      在转账时不会从该额度中扣除
   function erc20Approve(
     address spender_,
     uint256 value_
   ) public virtual returns (bool) {
-    // Prevent granting 0x0 an ERC-20 allowance.
+    // 防止授予0x0一个ERC-20授权
     if (spender_ == address(0)) {
       revert InvalidSpender();
     }
-
     allowance[msg.sender][spender_] = value_;
 
     emit ERC20Events.Approval(msg.sender, spender_, value_);
@@ -452,9 +455,11 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     return target_ == address(0) || _erc721TransferExempt[target_];
   }
 
-  /// @notice For a token token id to be considered valid, it just needs
-  ///         to fall within the range of possible token ids, it does not
-  ///         necessarily have to be minted yet.
+  /// @notice 判断代币ID是否有效
+  /// @dev 一个代币ID要被认为是有效的，只需要满足以下条件:
+  ///      1. ID必须大于ID编码前缀(ID_ENCODING_PREFIX)
+  ///      2. ID不能等于uint256的最大值
+  ///      注意:代币ID不需要已经被铸造,只要在有效范围内即可
   function _isValidTokenId(uint256 id_) internal pure returns (bool) {
     return id_ > ID_ENCODING_PREFIX && id_ != type(uint256).max;
   }
@@ -658,13 +663,12 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
         }
     }
     
-    // 如果没找到匹配的且数量足够，铸造新的
-    revert InvalidAmount(); // 如果没有找到匹配价值的NFT，则回退
+    // 如果没找到匹配的，尝试拆分为多个价值为1的NFT
+    _retrieveMultipleNFTs(to_, targetAmount_);
   }
 
   // 内部函数：获取多个价值为1的NFT
   function _retrieveMultipleNFTs(address to_, uint256 availableAmount_) private {
-    // @audit revert MintLimitReached() - 当 minted 达到 uint256 最大值时会报错
     uint256 nftsToMint = availableAmount_ / units;
     
     for (uint256 i = 0; i < nftsToMint;) {
@@ -683,7 +687,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
                     } else if (j == _storedERC721Ids.length() - 1) {
                       _storedERC721Ids.popBack();
                     } else {
-    // 如果是中间元素，需要重新组织队列
                       uint256 length = _storedERC721Ids.length();
                       for (uint256 k = j; k < length - 1; k++) {
                         uint256 nextValue = _storedERC721Ids.at(k + 1);
@@ -693,7 +696,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
                       _storedERC721Ids.popBack();
                     }
                     _handleNFTRestore(candidateId);
-                    // @audit _transferERC721() 内部可能会触发 InvalidSender() 或 InvalidRecipient() 错误
                     _transferERC721(address(0), to_, candidateId);
                     found = true;
                 }
@@ -708,7 +710,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
                 revert MintLimitReached();
             }
             uint256 newId = ID_ENCODING_PREFIX + minted;
-            // @audit _transferERC721() 内部可能会触发 InvalidSender() 或 InvalidRecipient() 错误
             _transferERC721(address(0), to_, newId);
         }
         
@@ -917,11 +918,11 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   }
 
   /// @notice 在转移 NFT 时需要确保没有存款
-  function _beforeTokenTransfer(address from_, address to_, uint256 tokenId_) internal virtual {
-    if (from_ != address(0) && to_ != address(0)) { // 排除铸造和销毁
-      require(_tokenDeposits[tokenId_].length == 0, "Must withdraw deposits before transfer");
-    }
-  }
+  // function _beforeTokenTransfer(address from_, address to_, uint256 tokenId_) internal virtual {
+  //   if (from_ != address(0) && to_ != address(0)) { // 排除铸造和销毁
+  //     require(_tokenDeposits[tokenId_].length == 0, "Must withdraw deposits before transfer");
+  //   }
+  // }
 
   /// @notice Transfer deposits when NFT is transferred
   /// @dev This function should be called during NFT transfer

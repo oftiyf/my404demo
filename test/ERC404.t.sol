@@ -63,8 +63,13 @@ contract ERC404Test is Test {
         vm.startPrank(alice);
         
         // 转移 1 个完整单位的代币给 Bob
-        token.transfer(bob, UNIT);
+        //这里用一下approve
+        token.erc20Approve(bob, UNIT);
         
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        token.transferFrom(alice, bob, UNIT);
         vm.stopPrank();
 
         // 验证余额变化
