@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.0.0) (utils/structs/DoubleEndedQueue.sol)
-// Modified by Pandora Labs to support native uint256 operations
+// OpenZeppelin Contracts (最后更新 v5.0.0) (utils/structs/DoubleEndedQueue.sol)
+// 由 Pandora Labs 修改以支持原生 uint256 操作
 pragma solidity ^0.8.20;
 
 /**
- * @dev A sequence of items with the ability to efficiently push and pop items (i.e. insert and remove) on both ends of
- * the sequence (called front and back). Among other access patterns, it can be used to implement efficient LIFO and
- * FIFO queues. Storage use is optimized, and all operations are O(1) constant time. This includes {clear}, given that
- * the existing queue contents are left in storage.
+ * @dev 一个序列数据结构,可以在序列的两端(称为前端和后端)高效地进行推入和弹出操作(即插入和删除)。
+ * 除了其他访问模式外,它可以用于实现高效的 LIFO 和 FIFO 队列。存储使用经过优化,所有操作都是 O(1) 常数时间。
+ * 这包括 {clear} 操作,因为现有的队列内容会保留在存储中。
  *
- * The struct is called `Uint256Deque`. This data structure can only be used in storage, and not in memory.
+ * 该结构体称为 `Uint256Deque`。这个数据结构只能在存储中使用,不能在内存中使用。
  *
  * ```solidity
  * DoubleEndedQueue.Uint256Deque queue;
@@ -17,28 +16,27 @@ pragma solidity ^0.8.20;
  */
 library DoubleEndedQueue {
   /**
-   * @dev An operation (e.g. {front}) couldn't be completed due to the queue being empty.
+   * @dev 由于队列为空,操作(例如 {front})无法完成。
    */
   error QueueEmpty();
 
   /**
-   * @dev A push operation couldn't be completed due to the queue being full.
+   * @dev 由于队列已满,推入操作无法完成。
    */
   error QueueFull();
 
   /**
-   * @dev An operation (e.g. {at}) couldn't be completed due to an index being out of bounds.
+   * @dev 由于索引超出范围,操作(例如 {at})无法完成。
    */
   error QueueOutOfBounds();
 
   /**
-   * @dev Indices are 128 bits so begin and end are packed in a single storage slot for efficient access.
+   * @dev 索引为 128 位,因此开始和结束被打包在单个存储槽中以实现高效访问。
    *
-   * Struct members have an underscore prefix indicating that they are "private" and should not be read or written to
-   * directly. Use the functions provided below instead. Modifying the struct manually may violate assumptions and
-   * lead to unexpected behavior.
+   * 结构体成员带有下划线前缀,表示它们是"私有的",不应直接读取或写入。
+   * 请使用下面提供的函数。手动修改结构体可能会违反假设并导致意外行为。
    *
-   * The first item is at data[begin] and the last item is at data[end - 1]. This range can wrap around.
+   * 第一个元素在 data[begin],最后一个元素在 data[end - 1]。这个范围可以环绕。
    */
   struct Uint256Deque {
     uint128 _begin;
@@ -47,9 +45,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Inserts an item at the end of the queue.
+   * @dev 在队列末尾插入一个元素。
    *
-   * Reverts with {QueueFull} if the queue is full.
+   * 如果队列已满,则回退并抛出 {QueueFull}。
    */
   function pushBack(Uint256Deque storage deque, uint256 value) internal {
     unchecked {
@@ -61,9 +59,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Removes the item at the end of the queue and returns it.
+   * @dev 移除队列末尾的元素并返回它。
    *
-   * Reverts with {QueueEmpty} if the queue is empty.
+   * 如果队列为空,则回退并抛出 {QueueEmpty}。
    */
   function popBack(
     Uint256Deque storage deque
@@ -79,9 +77,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Inserts an item at the beginning of the queue.
+   * @dev 在队列开头插入一个元素。
    *
-   * Reverts with {QueueFull} if the queue is full.
+   * 如果队列已满,则回退并抛出 {QueueFull}。
    */
   function pushFront(Uint256Deque storage deque, uint256 value) internal {
     unchecked {
@@ -93,9 +91,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Removes the item at the beginning of the queue and returns it.
+   * @dev 移除队列开头的元素并返回它。
    *
-   * Reverts with `QueueEmpty` if the queue is empty.
+   * 如果队列为空,则回退并抛出 `QueueEmpty`。
    */
   function popFront(
     Uint256Deque storage deque
@@ -110,9 +108,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Returns the item at the beginning of the queue.
+   * @dev 返回队列开头的元素。
    *
-   * Reverts with `QueueEmpty` if the queue is empty.
+   * 如果队列为空,则回退并抛出 `QueueEmpty`。
    */
   function front(
     Uint256Deque storage deque
@@ -122,9 +120,9 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Returns the item at the end of the queue.
+   * @dev 返回队列末尾的元素。
    *
-   * Reverts with `QueueEmpty` if the queue is empty.
+   * 如果队列为空,则回退并抛出 `QueueEmpty`。
    */
   function back(
     Uint256Deque storage deque
@@ -136,27 +134,25 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Return the item at a position in the queue given by `index`, with the first item at 0 and last item at
-   * `length(deque) - 1`.
+   * @dev 返回队列中由 `index` 给定位置的元素,第一个元素的索引为 0,最后一个元素的索引为 `length(deque) - 1`。
    *
-   * Reverts with `QueueOutOfBounds` if the index is out of bounds.
+   * 如果索引超出范围,则回退并抛出 `QueueOutOfBounds`。
    */
   function at(
     Uint256Deque storage deque,
     uint256 index
   ) internal view returns (uint256 value) {
     if (index >= length(deque)) revert QueueOutOfBounds();
-    // By construction, length is a uint128, so the check above ensures that index can be safely downcast to uint128
+    // 根据构造,length 是一个 uint128,因此上面的检查确保 index 可以安全地向下转换为 uint128
     unchecked {
       return deque._data[deque._begin + uint128(index)];
     }
   }
 
   /**
-   * @dev Resets the queue back to being empty.
+   * @dev 将队列重置为空。
    *
-   * NOTE: The current items are left behind in storage. This does not affect the functioning of the queue, but misses
-   * out on potential gas refunds.
+   * 注意:当前的元素会保留在存储中。这不会影响队列的功能,但会错过潜在的 gas 退款。
    */
   function clear(Uint256Deque storage deque) internal {
     deque._begin = 0;
@@ -164,7 +160,7 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Returns the number of items in the queue.
+   * @dev 返回队列中的元素数量。
    */
   function length(Uint256Deque storage deque) internal view returns (uint256) {
     unchecked {
@@ -173,7 +169,7 @@ library DoubleEndedQueue {
   }
 
   /**
-   * @dev Returns true if the queue is empty.
+   * @dev 如果队列为空则返回 true。
    */
   function empty(Uint256Deque storage deque) internal view returns (bool) {
     return deque._end == deque._begin;

@@ -11,6 +11,7 @@ import {ERC404Deposits} from "./ERC404Deposits.sol";  // 确保正确导入
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 abstract contract ERC404 is IERC404,ERC404Deposits{
+  // 来源于 @openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol
   using DoubleEndedQueue for DoubleEndedQueue.Uint256Deque;
 
   /// @dev The queue of ERC-721 tokens stored in the contract.
@@ -168,17 +169,19 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
   /// @notice tokenURI must be implemented by child contract
   function tokenURI(uint256 id_) public view virtual returns (string memory);
-
-/// @notice 代币授权函数
-/// @dev 该函数已禁用，请使用 erc20Approve 或 erc721Approve 进行授权
-/// @param spender_ 被授权者地址  
-/// @param valueOrId_ 授权的代币数量或NFT ID
-/// @return 永远会revert，返回类型只是为了符合接口要求
+  
+  //就是20的approve 
   function approve(
     address spender_,
-    uint256 valueOrId_
+    uint256 value_
   ) public virtual returns (bool) {
-    revert("Use erc20Approve() or erc721Approve() instead");
+    if (spender_ == address(0)) {
+      revert InvalidSpender();
+    }
+    allowance[msg.sender][spender_] = value_;
+
+    emit ERC20Events.Approval(msg.sender, spender_, value_);
+
     return true;
   }
 
@@ -198,22 +201,21 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     emit ERC721Events.Approval(erc721Owner, spender_, id_);
   }
 
-  /// @dev 提供type(uint256).max作为授权值的结果是一个无限制的授权，
-  ///      在转账时不会从该额度中扣除
-  function erc20Approve(
-    address spender_,
-    uint256 value_
-  ) public virtual returns (bool) {
-    // 防止授予0x0一个ERC-20授权
-    if (spender_ == address(0)) {
-      revert InvalidSpender();
-    }
-    allowance[msg.sender][spender_] = value_;
+  //@audit 这里注释掉了，但是没有删除，可能需要删除 
+  // function erc20Approve(
+  //   address spender_,
+  //   uint256 value_
+  // ) internal virtual returns (bool) {
+  //   // 防止授予0x0一个ERC-20授权
+  //   if (spender_ == address(0)) {
+  //     revert InvalidSpender();
+  //   }
+  //   allowance[msg.sender][spender_] = value_;
 
-    emit ERC20Events.Approval(msg.sender, spender_, value_);
+  //   emit ERC20Events.Approval(msg.sender, spender_, value_);
 
-    return true;
-  }
+  //   return true;
+  // }
 
   /// @notice Function for ERC-721 approvals
   function setApprovalForAll(address operator_, bool approved_) public virtual {
@@ -243,20 +245,16 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
     return true;
   }
-
-  /// @notice ERC-721转账函数
-  /// @dev 推荐使用此函数进行ERC721转账
+//这里就是做了检查，实际的转账在_transferERC721
   function erc721TransferFrom(
     address from_,
     address to_,
     uint256 id_
   ) public virtual {
-    // 防止从0地址铸造代币
     if (from_ == address(0)) {
       revert InvalidSender();
     }
 
-    // 防止销毁代币到0地址
     if (to_ == address(0)) {
       revert InvalidRecipient();
     }
@@ -265,7 +263,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
       revert Unauthorized();
     }
 
-    // 检查操作者是发送者本人、被授权的操作者或被授权处理该代币
     if (
       msg.sender != from_ &&
       !isApprovedForAll[from_][msg.sender] &&
@@ -274,45 +271,32 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
       revert Unauthorized();
     }
 
-    // We only need to check ERC-721 transfer exempt status for the recipient
-    // since the sender being ERC-721 transfer exempt means they have already
-    // had their ERC-721s stripped away during the rebalancing process.
     if (erc721TransferExempt(to_)) {
       revert RecipientIsERC721TransferExempt();
     }
 
-    // Transfer 1 * units ERC-20 and 1 ERC-721 token.
-    // ERC-721 transfer exemptions handled above. Can't make it to this point if either is transfer exempt.
-    // 不需要调用 _transferERC20，因为 _transferERC721 内部已经调用了 _transferDeposits 来转移存款
     _transferERC721(from_, to_, id_);
   }
-
-  /// @notice ERC-20代币的transferFrom函数
-  /// @dev 推荐使用此函数进行ERC20转账
+//这里就是做了检查，实际的转账在_transferERC20WithERC721
   function erc20TransferFrom(
     address from_,
     address to_,
     uint256 value_
   ) public virtual returns (bool) {
-    // 防止从0地址铸造代币
     if (from_ == address(0)) {
       revert InvalidSender();
     }
 
-    // 防止销毁代币到0地址
     if (to_ == address(0)) {
       revert InvalidRecipient();
     }
 
     uint256 allowed = allowance[from_][msg.sender];
 
-    // 检查操作者是否有足够的授权额度
     if (allowed != type(uint256).max) {
       allowance[from_][msg.sender] = allowed - value_;
     }
 
-    // 直接转移ERC-20需要使用_transferERC20WithERC721函数
-    // 在函数内部处理ERC-721豁免
     return _transferERC20WithERC721(from_, to_, value_);
   }
 
@@ -321,13 +305,9 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   ///      given this function is only supported on the ERC-20 interface.
   ///      Treats even large amounts that are valid ERC-721 ids as ERC-20s.
   function transfer(address to_, uint256 value_) public virtual returns (bool) {
-    // Prevent burning tokens to 0x0.
     if (to_ == address(0)) {
       revert InvalidRecipient();
     }
-
-    // Transferring ERC-20s directly requires the _transferERC20WithERC721 function.
-    // Handles ERC-721 exemptions internally.
     return _transferERC20WithERC721(msg.sender, to_, value_);
   }
 
@@ -357,6 +337,12 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
     transferFrom(from_, to_, id_);
 
+    // 这里的检查逻辑是:
+    // 1. 首先检查接收地址是否为合约(to_.code.length != 0)
+    // 2. 如果是合约,则要求该合约必须正确实现ERC721Receiver接口
+    // 3. 如果接收地址是EOA(普通账户),则不需要做任何检查
+    // 所以这个safeTransferFrom函数对合约账户有额外的安全检查,
+    // 但对普通账户来说和普通的transferFrom没有区别
     if (
       to_.code.length != 0 &&
       IERC721Receiver(to_).onERC721Received(msg.sender, from_, id_, data_) !=
@@ -428,6 +414,9 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   }
 
   /// @notice Returns domain initial domain separator, or recomputes if chain id is not equal to initial chain id
+  /// @notice 返回域分隔符。如果当前链ID等于初始链ID，则返回初始域分隔符；否则重新计算域分隔符
+  /// @dev 这个函数用于EIP-2612的permit功能，域分隔符是用来防止跨链重放攻击的
+  /// @return bytes32 当前的域分隔符
   function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
     return
       block.chainid == _INITIAL_CHAIN_ID
@@ -443,7 +432,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
       interfaceId == type(IERC165).interfaceId;
   }
 
-  /// @notice Function for self-exemption
+  /// 设置自己为ERC721豁免
   function setSelfERC721TransferExempt(bool state_) public virtual {
     _setERC721TransferExempt(msg.sender, state_);
   }
@@ -570,7 +559,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
         }
       }
     } else {
-      // 情况4) 发送者和接收者都不是ERC-721豁免
+      // 情况4) 发送者和接收者都不是ERC-721豁免，直接转最外层的NFT
       uint256 nftsToTransfer = value_ / units;
       for (uint256 i = 0; i < nftsToTransfer; ) {
         uint256 indexOfLastToken = _owned[from_].length - 1;
@@ -581,20 +570,9 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
         }
       }
 
-      if (
-        erc20BalanceOfSenderBefore / units - erc20BalanceOf(from_) / units >
-        nftsToTransfer
-      ) {
-        _withdrawAndStoreERC721(from_);
-      }
-
-      if (
-        erc20BalanceOf(to_) / units - erc20BalanceOfReceiverBefore / units >
-        nftsToTransfer
-      ) {
-        // 接收者获得新的整数代币时，只获取价值为1的NFT
-        _retrieveOrMintERC721(to_, units, false);
-      }
+      // 在情况4中，由于发送者和接收者都不是ERC-721豁免，
+      // 且我们已经按照value_/units的数量转移了NFT，
+      // 不会出现需要额外存储或获取NFT的情况
     }
 
     return true;
@@ -643,7 +621,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
   // 内部函数：获取单个特定价值的NFT
   function _retrieveSingleNFT(address to_, uint256 targetAmount_) private {
-    if (!_storedERC721Ids.empty()) {
+    if (!_storedERC721Ids.empty()) { // _storedERC721Ids是一个存储被拆分的NFT的ID的队列数据结构，在ERC404.sol文件中定义。当一个NFT被拆分时，其ID会被存入这个队列中，等待之后被重新组合或取回。
         // 遍历存储的ID，寻找价值匹配的
         uint256 i = 0;
         uint256 storedIdsLength = _storedERC721Ids.length();

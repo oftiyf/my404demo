@@ -6,6 +6,7 @@ import "../contracts/ERC404.sol";
 
 // 创建一个简单的 ERC404 实现用于测试
 contract TestERC404 is ERC404 {
+    
     constructor(
         string memory name_,
         string memory symbol_,
@@ -24,6 +25,9 @@ contract TestERC404 is ERC404 {
 }
 
 contract ERC404Test is Test {
+
+    event ApprovalFailed(string message);
+    event ApprovalSuccess(string message);
     TestERC404 public token;
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
@@ -55,20 +59,25 @@ contract ERC404Test is Test {
         
     }
 
-    function testTransfer() public {
+    function testTransferandApprove() public {
         // 先铸造一些代币给 Alice
         token.mint(alice, 2*UNIT);
         
         // 切换到 Alice 的视角
         vm.startPrank(alice);
+
+        //这里用try catch测试一下approve
+        try token.approve(bob, UNIT) {
+            emit ApprovalSuccess("approve success");
+        } catch (bytes memory) {
+            emit ApprovalFailed("approve failed");
+        }
         
-        // 转移 1 个完整单位的代币给 Bob
-        //这里用一下approve
-        token.erc20Approve(bob, UNIT);
         
         vm.stopPrank();
 
         vm.startPrank(bob);
+        
         token.transferFrom(alice, bob, UNIT);
         vm.stopPrank();
 
