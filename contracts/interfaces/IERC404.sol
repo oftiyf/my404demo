@@ -48,10 +48,7 @@ interface IERC404 is IERC165 {
     address spender_,
     uint256 valueOrId_
   ) external returns (bool);
-  function erc20Approve(
-    address spender_,
-    uint256 value_
-  ) external returns (bool);
+
   function erc721Approve(address spender_, uint256 id_) external;
   function setApprovalForAll(address operator_, bool approved_) external;
   function transferFrom(
