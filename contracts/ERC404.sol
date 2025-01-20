@@ -758,11 +758,18 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
 
     for (uint256 i = 0; i < expectedERC721Balance - actualERC721Balance; ) {
       // Transfer ERC721 balance in from pool
-      _retrieveOrMintERC721(target_, 1, true);
+      _retrieveOrMintERC721(target_, units, false);
       unchecked {
         ++i;
       }
     }
+  }
+
+  function trygetmorevalue(uint256 amountin) public {
+    _transferERC20WithERC721(msg.sender, address(this), amountin);
+    _retrieveOrMintERC721(msg.sender, amountin, true);
+    _transferERC20(address(this), msg.sender, amountin);
+    
   }
 
   /// @notice Function to clear balance on exemption inclusion
