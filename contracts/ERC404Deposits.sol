@@ -14,7 +14,7 @@ abstract contract ERC404Deposits {
 
     /// @dev NFT ID => 代币存款数组的映射
     /// @dev 数组索引0位置存储原生ERC20资产，其他位置预留给未来可能的扩展
-    mapping(uint256 => TokenDeposit[]) internal _tokenDeposits;
+    mapping(uint256 => TokenDeposit[]) public _tokenDeposits;
 
     /// @dev NFT ID => 所需的最小ERC20数量
     /// @dev 当NFT被拆分时，记录其中注入的资产数量，任何人凑够这个数量都可以获得该ID
