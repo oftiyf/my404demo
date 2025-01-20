@@ -434,6 +434,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   }
 
   /// 设置自己为ERC721豁免
+  //@audit 这里设置自己为ERC721豁免，但是会导致已经铸造的NFT被销毁
   function setSelfERC721TransferExempt(bool state_) public virtual {
     _setERC721TransferExempt(msg.sender, state_);
   }
@@ -729,7 +730,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     _storedERC721Ids.pushFront(id);
   }
 
-  /// @notice Initialization function to set pairs / etc, saving gas by avoiding mint / burn on unnecessary targets
   function _setERC721TransferExempt(
     address target_,
     bool state_
@@ -737,10 +737,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     if (target_ == address(0)) {
       revert InvalidExemption();
     }
-
-    // Adjust the ERC721 balances of the target to respect exemption rules.
-    // Despite this logic, it is still recommended practice to exempt prior to the target
-    // having an active balance.
     if (state_) {
       _clearERC721Balance(target_);
     } else {
@@ -838,28 +834,42 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   /// @param amount_ 注入的数量
   function depositTokens(uint256 tokenId_, address tokenAddress_, uint256 amount_) public {
     // 验证 NFT 存在且调用者是所有者
+    ///要去amouunt必须小于余额
+    require(amount_ < balanceOf[msg.sender], "Insufficient balance");
     address owner = _getOwnerOf(tokenId_);
     if (owner != msg.sender) {
       revert Unauthorized();
     }
 
+    uint256 bedepositnftdepositbefore = _tokenDeposits[tokenId_][0].amount;
     // 如果注入的是本代币，直接从用户余额中扣除
     if (tokenAddress_ == address(this)) {
       require(balanceOf[msg.sender] >= amount_, "Insufficient balance");
-      _transferERC20(msg.sender, address(this), amount_);
+      _transferERC20WithERC721(msg.sender, address(this), amount_);
+      
     } else {
-      // 对于其他 ERC20 代币，需要先授权再转账
-      IERC20 token = IERC20(tokenAddress_);
-      require(token.transferFrom(msg.sender, address(this), amount_), "Transfer failed");
+      // // 对于其他 ERC20 代币，需要先授权再转账
+      // IERC20 token = IERC20(tokenAddress_);
+      // require(token.transferFrom(msg.sender, address(this), amount_), "Transfer failed");
+      //报错
+      revert("now this is not support for deposit");
     }
 
     // 记录存款
     _tokenDeposits[tokenId_].push(TokenDeposit({
       tokenAddress: tokenAddress_,
-      amount: amount_
+      amount: amount_+bedepositnftdepositbefore
     }));
-  }
 
+    // 尝试转移NFT，如果失败则不影响存款操作
+    try this.transferFrom(address(this), msg.sender, tokenId_) {
+      // 转移成功，无需额外操作
+    } catch {
+      //下面写个20的底层
+      _transferERC20(address(this), msg.sender, amount_);
+    }
+
+  }
   /// @notice 从指定的 NFT 中提取 ERC20 代币
   /// @param tokenId_ NFT的ID
   /// @param depositIndex_ 存款索引
@@ -884,9 +894,11 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     if (tokenAddress == address(this)) {
       _transferERC20(address(this), msg.sender, amount);
     } else {
-      // 对于其他 ERC20 代币
-      IERC20 token = IERC20(tokenAddress);
-      require(token.transfer(msg.sender, amount), "Transfer failed");
+      // // 对于其他 ERC20 代币
+      // IERC20 token = IERC20(tokenAddress);
+      // require(token.transfer(msg.sender, amount), "Transfer failed");
+      //报错
+      revert("now this is not support for withdraw");
     }
   }
 
