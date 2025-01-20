@@ -690,31 +690,42 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
             }
             uint256 newId = ID_ENCODING_PREFIX + minted;
             _transferERC721(address(0), to_, newId);
+            //这里做一下自动
+            // 为新铸造的NFT添加初始存款记录
+            _tokenDeposits[newId].push(TokenDeposit({
+                tokenAddress: address(this),  // 原生ERC20代币地址
+                amount: units               // 存入1个单位的代币
+            }));
         }
         
         unchecked { ++i; }
     }
   }
 
-  /// @notice Internal function for ERC-721 deposits to bank (this contract).
-  /// @dev This function will allow depositing of ERC-721s to the bank, which can be retrieved by future minters.
-  // Does not handle ERC-721 exemptions.
+  /// @notice 内部函数,用于将ERC-721存入银行(即本合约)
+  /// @dev 这个函数允许将ERC-721存入银行,供未来的铸币者取回使用
+  /// 主要功能:
+  /// 1. 从用户地址中取出最新添加的NFT(后进先出)
+  /// 2. 在NFT被拆分前保存其存款记录
+  /// 3. 将NFT转移到0地址(相当于销毁)
+  /// 4. 将该NFT ID记录到合约的存储队列中
+  /// 注意:不处理ERC-721豁免情况
   function _withdrawAndStoreERC721(address from_) internal virtual {
     if (from_ == address(0)) {
       revert InvalidSender();
     }
 
-    // Retrieve the latest token added to the owner's stack (LIFO).
+    // 获取所有者堆栈中最新添加的代币(后进先出)
     uint256 id = _owned[from_][_owned[from_].length - 1];
 
     // 在NFT被拆分前保存存款记录
     _handleNFTSplit(id);
 
-    // Transfer to 0x0.
-    // Does not handle ERC-721 exemptions.
+    // 转移到0地址(相当于销毁)
+    // 不处理ERC-721豁免情况
     _transferERC721(from_, address(0), id);
 
-    // Record the token in the contract's bank queue.
+    // 将代币记录到合约的银行队列中
     _storedERC721Ids.pushFront(id);
   }
 
