@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/ERC404.sol";
-
+import {ERC404Deposits} from "../contracts/ERC404Deposits.sol";  // 导入整个合约
 // 创建一个简单的 ERC404 实现用于测试
 contract TestERC404 is ERC404 {
     
@@ -25,6 +25,11 @@ contract TestERC404 is ERC404 {
 }
 
 contract ERC404Test is Test {
+
+    struct TokenDeposit {
+        address tokenAddress;
+        uint256 amount;
+    }
 
     event ApprovalFailed(string message);
     event ApprovalSuccess(string message);
@@ -79,6 +84,25 @@ contract ERC404Test is Test {
         vm.startPrank(bob);
         
         token.transferFrom(alice, bob, UNIT);
+        //查看一下_storedERC721Ids 具体内容
+        uint256[] memory aliceNFTs = token.owned(alice);
+        console.log("Alice's NFT IDs:");
+        for(uint256 i = 0; i < aliceNFTs.length; i++) {
+            console.log("NFT #", i, ":", aliceNFTs[i]);
+        }
+        
+        if (aliceNFTs.length > 0) {
+        ERC404Deposits.TokenDeposit[] memory deposits = token.getTokenDeposits(aliceNFTs[0]);  
+        console.log("Alice's deposits for NFT", aliceNFTs[0], ":");
+        for(uint256 i = 0; i < deposits.length; i++) {
+            console.log("Deposit #1233", i, "amount:", deposits[i].amount);
+            console.log("Deposit #", i, "token:", deposits[i].tokenAddress);
+        }
+        //@audit 我没有默认存储，所以返回了0
+        console.log("Alice's deposits length:", deposits.length);   
+    } else {
+        console.log("Alice has no NFTs");
+    }
         vm.stopPrank();
 
         // 验证余额变化

@@ -14,6 +14,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   // 来源于 @openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol
   using DoubleEndedQueue for DoubleEndedQueue.Uint256Deque;
 
+  
   /// @dev The queue of ERC-721 tokens stored in the contract.
   DoubleEndedQueue.Uint256Deque private _storedERC721Ids;
 
@@ -620,7 +621,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   }
 
   // 内部函数：获取单个特定价值的NFT
-  function _retrieveSingleNFT(address to_, uint256 targetAmount_) private {
+  function _retrieveSingleNFT(address to_, uint256 targetAmount_) internal virtual {
     if (!_storedERC721Ids.empty()) { // _storedERC721Ids是一个存储被拆分的NFT的ID的队列数据结构，在ERC404.sol文件中定义。当一个NFT被拆分时，其ID会被存入这个队列中，等待之后被重新组合或取回。
         // 遍历存储的ID，寻找价值匹配的
         uint256 i = 0;
@@ -646,7 +647,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   }
 
   // 内部函数：获取多个价值为1的NFT
-  function _retrieveMultipleNFTs(address to_, uint256 availableAmount_) private {
+  function _retrieveMultipleNFTs(address to_, uint256 availableAmount_) internal virtual {
     uint256 nftsToMint = availableAmount_ / units;
     
     for (uint256 i = 0; i < nftsToMint;) {
