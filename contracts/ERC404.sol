@@ -17,7 +17,6 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   
   /// @dev The queue of ERC-721 tokens stored in the contract.
   DoubleEndedQueue.Uint256Deque private _storedERC721Ids;
-
   /// @dev Token name
   string public name;
 
@@ -97,6 +96,8 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     _INITIAL_CHAIN_ID = block.chainid;
     _INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
   }
+
+
 
   /// @notice Function to find owner of a given ERC-721 token
   function ownerOf(
@@ -346,6 +347,13 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     // 但对普通账户来说和普通的transferFrom没有区别
     if (
       to_.code.length != 0 &&
+      // 这里调用了接收合约的onERC721Received函数,并检查返回值是否等于预期的selector
+      // 是一个外部调用,调用to_地址的onERC721Received函数
+      // 防重入的关键点:
+      // 1. 在调用外部合约前,已经完成了所有状态变更(transferFrom已执行完)
+      // 2. 这个检查是在最后执行的,即使被重入也不会影响之前的状态变更
+      // 3. 通过检查返回值必须等于selector来确保接收合约正确实现了接口
+      // 4. 如果接收合约在onERC721Received中尝试重入,由于状态已更新,会失败
       IERC721Receiver(to_).onERC721Received(msg.sender, from_, id_, data_) !=
       IERC721Receiver.onERC721Received.selector
     ) {
@@ -839,7 +847,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
   /// @param tokenId_ NFT的ID
   /// @param tokenAddress_ ERC20代币的地址
   /// @param amount_ 注入的数量
-  function depositTokens(uint256 tokenId_, address tokenAddress_, uint256 amount_) public {
+  function depositTokens(uint256 tokenId_, address tokenAddress_, uint256 amount_) public override {
     // 验证 NFT 存在且调用者是所有者
     ///要去amouunt必须小于余额
     require(amount_ < balanceOf[msg.sender], "Insufficient balance");
@@ -877,36 +885,24 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     }
 
   }
-  /// @notice 从指定的 NFT 中提取 ERC20 代币
-  /// @param tokenId_ NFT的ID
-  /// @param depositIndex_ 存款索引
-  function withdrawTokens(uint256 tokenId_, uint256 depositIndex_) public override {
+
+
+  function withdrawTokens(uint256 tokenId_) public {
     // 验证 NFT 存在且调用者是所有者
     address owner = _getOwnerOf(tokenId_);
     if (owner != msg.sender) {
       revert Unauthorized();
     }
-
-    // 获取存款信息
-    require(depositIndex_ < _tokenDeposits[tokenId_].length, "Invalid deposit index");
-    TokenDeposit storage deposit = _tokenDeposits[tokenId_][depositIndex_];
-    
-    uint256 amount = deposit.amount;
-    address tokenAddress = deposit.tokenAddress;
-
-    // 删除存款记录
-    _removeDeposit(tokenId_, depositIndex_);
-
-    // 如果是本代币，直接从合约转给用户
-    if (tokenAddress == address(this)) {
-      _transferERC20(address(this), msg.sender, amount);
-    } else {
-      // // 对于其他 ERC20 代币
-      // IERC20 token = IERC20(tokenAddress);
-      // require(token.transfer(msg.sender, amount), "Transfer failed");
-      //报错
-      revert("now this is not support for withdraw");
+    //获取tokenid对应的存款
+    TokenDeposit[] memory deposits = getTokenDeposits(tokenId_);
+    //将这个erc721转移给用户，并且携带存款
+    _transferERC721(address(this), msg.sender, tokenId_); 
+    //遍历存款，将每个存款的代币转移给用户
+    for (uint256 i = 0; i < deposits.length; i++) {
+      _transferERC20(address(this), msg.sender, deposits[i].amount);
     }
+    
+    
   }
 
   /// @notice 获取指定 NFT 的所有存款信息
