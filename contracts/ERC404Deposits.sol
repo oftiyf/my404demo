@@ -27,26 +27,10 @@ abstract contract ERC404Deposits {
     /// @param tokenId_ NFT的ID
     /// @param amount_ 存入的数量
     function depositTokens(uint256 tokenId_, uint256 amount_) public virtual {
-        // 验证NFT存在且调用者是所有者
-        require(_isOwner(msg.sender, tokenId_), "Not token owner");
-        require(amount_ > 0, "Amount must be greater than 0");
-
-        // 如果是首次存款，初始化数组并添加第一个元素
-        if (_tokenDeposits[tokenId_].length == 0) {
-            _tokenDeposits[tokenId_].push(TokenDeposit({
-                tokenAddress: address(this),  // 原生ERC20代币地址
-                amount: amount_
-            }));
-        } else {
-            // 如果已经有存款，直接累加到索引0位置
-            _tokenDeposits[tokenId_][0].amount += amount_;
-        }
-
-        // 处理代币转账（从用户转到合约）
-        require(_transferFromSender(msg.sender, address(this), amount_), "Transfer failed");
-
-        emit TokensDeposited(tokenId_, address(this), amount_);
+        depositTokens(tokenId_, address(this), amount_);
     }
+
+    function depositTokens(uint256 tokenId_, address tokenAddress_, uint256 amount_) public virtual {}
 
     /// @notice 获取指定NFT的所有存款信息
     /// @param tokenId_ NFT的ID
@@ -72,34 +56,6 @@ abstract contract ERC404Deposits {
         }
     }
 
-    /// @notice 从NFT中提取特定代币
-    /// @param tokenId_ NFT的ID
-    /// @param depositIndex_ 要提取的存款索引
-    function withdrawTokens(uint256 tokenId_, uint256 depositIndex_) public virtual {
-        // 验证NFT存在且调用者是所有者
-        require(_isOwner(msg.sender, tokenId_), "Not token owner");
-        require(depositIndex_ < _tokenDeposits[tokenId_].length, "Invalid deposit index");
-
-        // 获取存款信息
-        TokenDeposit storage deposit = _tokenDeposits[tokenId_][depositIndex_];
-        uint256 amount = deposit.amount;
-        address tokenAddress = deposit.tokenAddress;
-
-        // 在转账前移除存款记录（防止重入攻击）
-        _removeDeposit(tokenId_, depositIndex_);
-
-        // 转移代币
-        if (tokenAddress == address(this)) {
-            // 如果是本合约代币
-            require(_transfer(address(this), msg.sender, amount), "Transfer failed");
-        } else {
-            // 如果是其他ERC20代币
-            IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, amount), "Transfer failed");
-        }
-
-        emit TokensWithdrawn(tokenId_, tokenAddress, amount);
-    }
 
     /// @notice 移除指定索引的存款记录
     function _removeDeposit(uint256 tokenId_, uint256 index_) internal virtual {
