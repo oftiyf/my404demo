@@ -2,13 +2,14 @@
 src = "contracts"
 test = "test"
 out = "out"
-libs = ["lib"]
+libs = ["lib", "node_modules"]
 solc = "0.8.20"
 exclude = ["contracts/legacy/**", "**/WETH.sol"]
 
-# 添加正确的 remappings
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
     "@uniswap/v2-periphery/=lib/v2-periphery/",
-    "@uniswap/v3-periphery/=lib/v3-periphery/"
+    "@uniswap/v3-periphery/=lib/v3-periphery/",
+    "@openzeppelin/=node_modules/@openzeppelin/",
+    "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/"
 ]

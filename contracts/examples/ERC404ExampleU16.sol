@@ -13,7 +13,7 @@ contract ERC404ExampleU16 is Ownable, ERC404U16 {
     uint256 maxTotalSupplyERC721_,
     address initialOwner_,
     address initialMintRecipient_
-  ) ERC404U16(name_, symbol_, decimals_) Ownable(initialOwner_) {
+  ) ERC404U16(name_, symbol_, decimals_) Ownable() {
     // Do not mint the ERC721s to the initial owner, as it's a waste of gas.
     _setERC721TransferExempt(initialMintRecipient_, true);
     _mintERC20(initialMintRecipient_, maxTotalSupplyERC721_ * units);
