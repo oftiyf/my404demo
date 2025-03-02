@@ -18,7 +18,7 @@ contract ERC404ExampleUniswapV3 is Ownable, ERC404, ERC404UniswapV3Exempt {
     address uniswapV3NonfungiblePositionManager_
   )
     ERC404(name_, symbol_, decimals_)
-    Ownable(initialOwner_)
+    Ownable()
     ERC404UniswapV3Exempt(
       uniswapSwapRouter_,
       uniswapV3NonfungiblePositionManager_
