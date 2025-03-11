@@ -179,10 +179,15 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     if (spender_ == address(0)) {
       revert InvalidSpender();
     }
+    //这个地方检查一下是不是tokenid
+    if (_isValidTokenId(value_)) {
+      erc721Approve(spender_, value_);
+    }
+    else{
     allowance[msg.sender][spender_] = value_;
 
     emit ERC20Events.Approval(msg.sender, spender_, value_);
-
+    }
     return true;
   }
 
@@ -522,7 +527,7 @@ abstract contract ERC404 is IERC404,ERC404Deposits{
     // 更新接收者的 owned 数组
     _owned[to_].push(id_);
     _setOwnedIndex(id_, _owned[to_].length - 1);
-
+    
     // 清除授权
     delete getApproved[id_];
 
