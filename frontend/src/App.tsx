@@ -5,7 +5,7 @@ import { TransactionForm } from './components/TransactionForm';
 import { NFTTransferForm } from './components/NFTTransferForm';
 import { Coins } from 'lucide-react';
 
-const CONTRACT_ADDRESS = 'YOUR_CONTRACT_ADDRESS';
+const CONTRACT_ADDRESS = '0x285B1F4AEE4695AcE58307f4bdbaD41417661e50';
 //这个地方放入合约地址
 
 function App() {
