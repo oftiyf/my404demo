@@ -1,4 +1,5 @@
 node_modules
+out
 .env
 .env*
 
@@ -18,3 +19,5 @@ node_modules
 
 /.vscode
 tmp
+/contracts/ERC405_backup.sol
+package-lock.json
