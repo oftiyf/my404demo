@@ -47,7 +47,8 @@ abstract contract ERC404Deposits {
         if (depositCount > 0) {
             for (uint256 i = 0; i < depositCount; i++) {
                 TokenDeposit storage deposit = deposits[i];
-                
+//audit-issue
+                IERC20(deposit.tokenAddress).transferFrom(from_, to_, deposit.amount);
                 // 发出事件来追踪存款的转移
                 // 实际代币仍然存在合约中，只是所有权随NFT转移
                 emit TokensWithdrawn(tokenId_, deposit.tokenAddress, deposit.amount);

@@ -67,7 +67,7 @@ contract ERC404Test is Test {
     function testTransferandApprove() public {
         // 先铸造一些代币给 Alice
         token.mint(alice, 10*UNIT);
-        
+
         // 切换到 Alice 的视角
         vm.startPrank(alice);
 
@@ -77,8 +77,8 @@ contract ERC404Test is Test {
         } catch (bytes memory) {
             emit ApprovalFailed("approve failed");
         }
-        
-        
+
+
         vm.stopPrank();
 
         vm.startPrank(bob);
@@ -90,7 +90,7 @@ contract ERC404Test is Test {
         for(uint256 i = 0; i < aliceNFTs.length; i++) {
             console.log("NFT #", i, ":", aliceNFTs[i]);
         }
-        
+
         if (aliceNFTs.length > 0) {
         ERC404Deposits.TokenDeposit[] memory deposits = token.getTokenDeposits(aliceNFTs[0]);  
         console.log("Alice's deposits for NFT", aliceNFTs[0], ":");
@@ -104,8 +104,6 @@ contract ERC404Test is Test {
         console.log("Alice has no NFTs");
     }
         vm.stopPrank();
-
-       
     }
 
     function testWithdrawAndStoreERC721() public {
